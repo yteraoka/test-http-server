@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
+//	"os"
 	"strconv"
 	"time"
 )
@@ -10,6 +13,10 @@ import (
 const DEFAULT_SLEEP_SECONDS = 5
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	if r.Method ==  http.MethodPost {
+		io.Copy(ioutil.Discard, r.Body)
+		//io.Copy(os.Stdout, r.Body)
+	}
 	if r.URL.Path == "/sleep" {
 		var sleep_sec int = DEFAULT_SLEEP_SECONDS
 		secs, ok := r.URL.Query()["s"]
