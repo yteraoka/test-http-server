@@ -1,60 +1,164 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-//	"os"
+	"os"
+	"runtime"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
-const DEFAULT_SLEEP_SECONDS = 5
+func sleepTime(s string) time.Duration {
+	t, err := time.ParseDuration(s)
+	if err != nil {
+		t = time.Duration(1) * time.Second
+	}
+	return t
+}
+
+func responseCode(s string) int {
+	code, err := strconv.Atoi(s)
+	if err != nil {
+		code = http.StatusOK
+	}
+	return code
+}
+
+func stress(t time.Duration, cores int) {
+	done := make(chan int)
+
+	if cores == 0 {
+		cores = runtime.NumCPU()
+	}
+
+	for i := 0; i < cores; i++ {
+		go func() {
+			for {
+				select {
+				case <-done:
+					return
+				default:
+				}
+			}
+		}()
+	}
+
+	time.Sleep(t)
+
+	close(done)
+}
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	if r.Method ==  http.MethodPost {
-		io.Copy(ioutil.Discard, r.Body)
-		//io.Copy(os.Stdout, r.Body)
+	s_sleep, ok := r.URL.Query()["sleep"]
+	if ok {
+		time.Sleep(sleepTime(s_sleep[0]))
 	}
-	if r.URL.Path == "/sleep" {
-		var sleep_sec int = DEFAULT_SLEEP_SECONDS
-		secs, ok := r.URL.Query()["s"]
-		if ok && len(secs) >= 1 {
-			tmp_sec, err := strconv.Atoi(secs[0])
-			if err == nil {
-				sleep_sec = tmp_sec
+
+	response_code := http.StatusOK
+	status, ok := r.URL.Query()["status"]
+	if ok {
+		response_code = responseCode(status[0])
+	}
+
+	cores := 0
+	s_cores, ok := r.URL.Query()["cores"]
+	if ok {
+		var err error
+		cores, err = strconv.Atoi(s_cores[0])
+		if err != nil {
+			cores = 0
+		}
+	}
+
+	s_sleep, ok = r.URL.Query()["stress"]
+	if ok {
+		stress(sleepTime(s_sleep[0]), cores)
+	}
+
+	if strings.HasSuffix(r.URL.Path, ".json") {
+		w.Header().Set("Content-Type","application/json")
+		w.WriteHeader(response_code)
+
+		j := map[string]interface{}{
+			"request": map[string]interface{}{},
+			"headers": map[string]interface{}{},
+		}
+
+		j["request"].(map[string]interface{})["method"] = r.Method
+		j["request"].(map[string]interface{})["uri"] = r.RequestURI
+		j["request"].(map[string]interface{})["proto"] = r.Proto
+		j["request"].(map[string]interface{})["content-length"] = r.ContentLength
+		j["request"].(map[string]interface{})["remote-addr"] = r.RemoteAddr
+		j["request"].(map[string]interface{})["close"] = r.Close
+
+		for k, v := range r.Header {
+			j["headers"].(map[string]interface{})[k] = v
+		}
+
+		_, ok = r.URL.Query()["echo"]
+		if ok {
+			if r.Method == http.MethodPost {
+				buf, err := ioutil.ReadAll(r.Body)
+				if err == nil {
+					j["body"] = string(buf)
+				}
+			}
+		} else {
+			if r.Method == http.MethodPost {
+				io.Copy(ioutil.Discard, r.Body)
 			}
 		}
-		time.Sleep(time.Duration(sleep_sec) * time.Second)
-		fmt.Fprintf(w, "Sleep %d\n", sleep_sec)
-	} else if r.URL.Path == "/304" {
-		w.WriteHeader(http.StatusNotModified)
-		fmt.Fprintf(w, "304 File Not Modified\n")
-	} else if r.URL.Path == "/400" {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "400 Bad Request\n")
-	} else if r.URL.Path == "/404" {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "404 File Not Found\n")
-	} else if r.URL.Path == "/500" {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "500 Internal Server Error\n")
-	} else if r.URL.Path == "/503" {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		fmt.Fprintf(w, "503 Service Unavailable\n")
-	} else if r.URL.Path == "/json1" {
-		w.Header().Set("Content-Type","application/json")
-		fmt.Fprintf(w, "{\"status\": \"ok\"}\n")
-	} else if r.URL.Path == "/json2" {
-		w.Header().Set("Content-Type","application/json")
-		fmt.Fprintf(w, "{\"server\":{\"status\":\"ok\"}}\n")
+
+		s, _ := json.Marshal(j)
+		fmt.Fprintf(w, string(s))
 	} else {
-		fmt.Fprintf(w, "Hello, World: " + r.URL.Path + "\n")
+		w.Header().Set("Content-Type","text/plain; charset=utf-8")
+		w.WriteHeader(response_code)
+		fmt.Fprintf(w, "\n[Request]\n")
+		fmt.Fprintf(w, "Method: %s\n", r.Method)
+		fmt.Fprintf(w, "Host: %s\n", r.Host)
+		fmt.Fprintf(w, "RequestURI: %s\n", r.RequestURI)
+		fmt.Fprintf(w, "Proto: %s\n", r.Proto)
+		fmt.Fprintf(w, "Content-Length: %d\n", r.ContentLength)
+		fmt.Fprintf(w, "Close: %v\n", r.Close)
+		fmt.Fprintf(w, "RemoteAddr: %v\n", r.RemoteAddr)
+
+		fmt.Fprintf(w, "\n[Received Headers]\n")
+		keys := make([]string, 0, len(r.Header))
+		for k := range r.Header {
+			keys = append(keys, k)
+		}
+
+		sort.Strings(keys)
+		for _, k := range keys {
+			fmt.Fprintf(w, "%s: %s\n", k, strings.Join(r.Header[k], ", "))
+		}
+
+		_, ok = r.URL.Query()["echo"]
+		if ok {
+			fmt.Fprintf(w, "\n[Received Body]\n")
+			if r.Method == http.MethodPost {
+				io.Copy(w, r.Body)
+			}
+		} else {
+			if r.Method == http.MethodPost {
+				io.Copy(ioutil.Discard, r.Body)
+			}
+		}
 	}
 }
 
 func main() {
 	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	listenAddr := os.Getenv("LISTEN_ADDR")
+	if listenAddr == "" {
+		listenAddr = ":8080"
+	}
+	http.ListenAndServe(listenAddr, nil)
 }
