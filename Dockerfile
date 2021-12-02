@@ -1,6 +1,6 @@
-FROM golang:1.16.3-buster as build
+FROM golang:1.17.3-buster as build
 WORKDIR /app
-COPY server.go .
+COPY server.go go.mod go.sum .
 RUN CGO_ENABLED=0 GOOS=linux go build -o test-http-server
 
 FROM debian:buster-slim

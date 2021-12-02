@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,6 +30,30 @@ func responseCode(s string) int {
 	return code
 }
 
+func stress(t time.Duration, cores int) {
+	done := make(chan int)
+
+	if cores == 0 {
+		cores = runtime.NumCPU()
+	}
+
+	for i := 0; i < cores; i++ {
+		go func() {
+			for {
+				select {
+				case <-done:
+					return
+				default:
+				}
+			}
+		}()
+	}
+
+	time.Sleep(t)
+
+	close(done)
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	s_sleep, ok := r.URL.Query()["sleep"]
 	if ok {
@@ -39,6 +64,21 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	status, ok := r.URL.Query()["status"]
 	if ok {
 		response_code = responseCode(status[0])
+	}
+
+	cores := 0
+	s_cores, ok := r.URL.Query()["cores"]
+	if ok {
+		var err error
+		cores, err = strconv.Atoi(s_cores[0])
+		if err != nil {
+			cores = 0
+		}
+	}
+
+	s_sleep, ok = r.URL.Query()["stress"]
+	if ok {
+		stress(sleepTime(s_sleep[0]), cores)
 	}
 
 	if strings.HasSuffix(r.URL.Path, ".json") {
