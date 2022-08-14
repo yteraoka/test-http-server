@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"log"
 	"os"
 	"runtime"
 	"sort"
@@ -81,6 +82,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		stress(sleepTime(s_sleep[0]), cores)
 	}
 
+	log.Printf("Request: %s %s %s\n", r.Method, r.RequestURI, r.Proto)
+	log.Printf("RemoteAddr: %s\n", r.RemoteAddr)
+	log.Printf("Host: %s\n", r.Host)
+
 	if strings.HasSuffix(r.URL.Path, ".json") {
 		w.Header().Set("Content-Type","application/json")
 		w.WriteHeader(response_code)
@@ -99,6 +104,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 		for k, v := range r.Header {
 			j["headers"].(map[string]interface{})[k] = v
+			log.Printf("%s: %v\n", k, v)
 		}
 
 		_, ok = r.URL.Query()["echo"]
@@ -138,6 +144,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		sort.Strings(keys)
 		for _, k := range keys {
 			fmt.Fprintf(w, "%s: %s\n", k, strings.Join(r.Header[k], ", "))
+			log.Printf("%s: %v\n", k, strings.Join(r.Header[k], ", "))
 		}
 
 		_, ok = r.URL.Query()["echo"]
@@ -156,9 +163,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/", handler)
+	listenPort := os.Getenv("PORT")
+	if listenPort == "" {
+		listenPort = "8080"
+	}
 	listenAddr := os.Getenv("LISTEN_ADDR")
 	if listenAddr == "" {
-		listenAddr = ":8080"
+		listenAddr = "0.0.0.0"
 	}
-	http.ListenAndServe(listenAddr, nil)
+	http.ListenAndServe(fmt.Sprintf("%s:%s", listenAddr, listenPort), nil)
 }
