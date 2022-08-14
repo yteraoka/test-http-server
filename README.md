@@ -12,6 +12,14 @@
 - サーバー側の timestamp を response に入れる
   - sleep させた場合、sleep 後の時刻
 
+## container image
+
+```
+docker pull ghcr.io/yteraoka/test-http-server:0.1.0
+```
+
+## 実行例
+
 ```
 $ curl -s "http://localhost:8080/"
 
