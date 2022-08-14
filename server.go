@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func sleepTime(s string) time.Duration {
@@ -93,6 +95,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		j := map[string]interface{}{
 			"request": map[string]interface{}{},
 			"headers": map[string]interface{}{},
+			"generated": map[string]interface{}{},
 		}
 
 		j["request"].(map[string]interface{})["method"] = r.Method
@@ -101,6 +104,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		j["request"].(map[string]interface{})["content-length"] = r.ContentLength
 		j["request"].(map[string]interface{})["remote-addr"] = r.RemoteAddr
 		j["request"].(map[string]interface{})["close"] = r.Close
+
+		u, _ := uuid.NewRandom()
+		j["generated"].(map[string]interface{})["uuid"] = u.String()
+		j["generated"].(map[string]interface{})["time"] = time.Now().String()
 
 		for k, v := range r.Header {
 			j["headers"].(map[string]interface{})[k] = v
@@ -146,6 +153,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%s: %s\n", k, strings.Join(r.Header[k], ", "))
 			log.Printf("%s: %v\n", k, strings.Join(r.Header[k], ", "))
 		}
+
+		u, _ := uuid.NewRandom()
+		fmt.Fprintf(w, "\n[Server Generated]\n")
+		fmt.Fprintf(w, "uuid: %s\n", u.String())
+		fmt.Fprintf(w, "time: %s\n", time.Now().String())
 
 		_, ok = r.URL.Query()["echo"]
 		if ok {
