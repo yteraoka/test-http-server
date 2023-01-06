@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"log"
+	"net/http"
 	"os"
 	"runtime"
 	"sort"
@@ -88,13 +88,26 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("RemoteAddr: %s\n", r.RemoteAddr)
 	log.Printf("Host: %s\n", r.Host)
 
+	if strings.HasPrefix(r.RequestURI, "/hostname") {
+		hostname, err := os.Hostname()
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "%s\n", err)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(response_code)
+		fmt.Fprintf(w, "Hostname: %s\n", hostname)
+		return
+	}
+
 	if strings.HasSuffix(r.URL.Path, ".json") {
-		w.Header().Set("Content-Type","application/json")
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(response_code)
 
 		j := map[string]interface{}{
-			"request": map[string]interface{}{},
-			"headers": map[string]interface{}{},
+			"request":   map[string]interface{}{},
+			"headers":   map[string]interface{}{},
 			"generated": map[string]interface{}{},
 		}
 
@@ -131,7 +144,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		s, _ := json.Marshal(j)
 		fmt.Fprintf(w, string(s))
 	} else {
-		w.Header().Set("Content-Type","text/plain; charset=utf-8")
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(response_code)
 		fmt.Fprintf(w, "\n[Request]\n")
 		fmt.Fprintf(w, "Method: %s\n", r.Method)
