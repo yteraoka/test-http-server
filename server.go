@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,10 +9,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -187,7 +190,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/", handler)
 	listenPort := os.Getenv("PORT")
 	if listenPort == "" {
 		listenPort = "8080"
@@ -196,5 +198,38 @@ func main() {
 	if listenAddr == "" {
 		listenAddr = "0.0.0.0"
 	}
-	http.ListenAndServe(fmt.Sprintf("%s:%s", listenAddr, listenPort), nil)
+
+	server := &http.Server{
+		Addr:              fmt.Sprintf("%s:%s", listenAddr, listenPort),
+		Handler:           http.HandlerFunc(handler),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       3660 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+
+	idleConnsClosed := make(chan struct{})
+
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+
+		log.Printf("Starting server shutdown\n")
+
+		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+		if err := server.Shutdown(ctx); err != nil {
+			// Error from closing listeners, or context timeout:
+			log.Printf("HTTP server Shutdown: %v\n", err)
+		}
+		close(idleConnsClosed)
+	}()
+
+	if err := server.ListenAndServe(); err != http.ErrServerClosed {
+		// Error starting or closing listener:
+		log.Fatalf("HTTP server ListenAndServe: %v\n", err)
+	}
+
+	<-idleConnsClosed
 }
