@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,6 +19,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+)
+
+var (
+	version = "unknown"
+	commit  = "unknown"
+	date    = "unknown"
 )
 
 func sleepTime(s string) time.Duration {
@@ -190,6 +197,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	var version_flag bool
+
+	flag.BoolVar(&version_flag, "version", false, "show version and exit")
+
+	flag.Parse()
+
+	if version_flag {
+		fmt.Printf("version: %s (commit: %s, date, %s)\n", version, commit, date)
+		os.Exit(1)
+	}
+
 	listenPort := os.Getenv("PORT")
 	if listenPort == "" {
 		listenPort = "8080"
