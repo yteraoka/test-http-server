@@ -69,7 +69,7 @@ func stress(t time.Duration, cores int) {
 }
 
 func preProcessLog(r *http.Request, requestId string) {
-	log.Info().Dict("httpRequest", zerolog.Dict().
+	log.Debug().Dict("httpRequest", zerolog.Dict().
 		Str("requestMethod", r.Method).
 		Str("requestUrl", fmt.Sprintf("http://%s%s", r.Host, r.RequestURI)).
 		Str("remoteIp", r.RemoteAddr).
