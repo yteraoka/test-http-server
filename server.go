@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,6 +18,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -67,7 +68,41 @@ func stress(t time.Duration, cores int) {
 	close(done)
 }
 
+func preProcessLog(r *http.Request, requestId string) {
+	log.Info().Dict("httpRequest", zerolog.Dict().
+		Str("requestMethod", r.Method).
+		Str("requestUrl", fmt.Sprintf("http://%s%s", r.Host, r.RequestURI)).
+		Str("remoteIp", r.RemoteAddr).
+		Int64("requestSize", r.ContentLength).
+		Str("userAgent", r.Header.Get("User-Agent"))).
+		Str("pharse", "pre").
+		Str("requestId", requestId).
+		Msg("")
+}
+
+func postProcessLog(r *http.Request, requestId string, status int, duration time.Duration) {
+	log.Info().Dict("httpRequest", zerolog.Dict().
+		Str("requestMethod", r.Method).
+		Str("requestUrl", fmt.Sprintf("http://%s%s", r.Host, r.RequestURI)).
+		Str("remoteIp", r.RemoteAddr).
+		Int64("requestSize", r.ContentLength).
+		Str("userAgent", r.Header.Get("User-Agent")).
+		Int("status", status).
+		Int64("latency", duration.Milliseconds())).
+		Str("pharse", "post").
+		Str("requestId", requestId).
+		Msg("")
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestId, _ := uuid.NewRandom()
+	preProcessLog(r, requestId.String())
+	status := innerHandler(w, r, requestId.String())
+	postProcessLog(r, requestId.String(), status, time.Since(start))
+}
+
+func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int {
 	s_sleep, ok := r.URL.Query()["sleep"]
 	if ok {
 		time.Sleep(sleepTime(s_sleep[0]))
@@ -94,21 +129,21 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		stress(sleepTime(s_sleep[0]), cores)
 	}
 
-	log.Printf("Request: %s %s %s\n", r.Method, r.RequestURI, r.Proto)
-	log.Printf("RemoteAddr: %s\n", r.RemoteAddr)
-	log.Printf("Host: %s\n", r.Host)
+	//log.Printf("Request: %s %s %s\n", r.Method, r.RequestURI, r.Proto)
+	//log.Printf("RemoteAddr: %s\n", r.RemoteAddr)
+	//log.Printf("Host: %s\n", r.Host)
 
 	if strings.HasPrefix(r.RequestURI, "/hostname") {
 		hostname, err := os.Hostname()
 		if err != nil {
 			w.WriteHeader(500)
 			fmt.Fprintf(w, "%s\n", err)
-			return
+			return 500
 		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(response_code)
 		fmt.Fprintf(w, "Hostname: %s\n", hostname)
-		return
+		return response_code
 	}
 
 	if strings.HasSuffix(r.URL.Path, ".json") {
@@ -134,7 +169,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 		for k, v := range r.Header {
 			j["headers"].(map[string]interface{})[k] = v
-			log.Printf("%s: %v\n", k, v)
+			//log.Printf("%s: %v\n", k, v)
 		}
 
 		_, ok = r.URL.Query()["echo"]
@@ -174,7 +209,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		sort.Strings(keys)
 		for _, k := range keys {
 			fmt.Fprintf(w, "%s: %s\n", k, strings.Join(r.Header[k], ", "))
-			log.Printf("%s: %v\n", k, strings.Join(r.Header[k], ", "))
+			//log.Printf("%s: %v\n", k, strings.Join(r.Header[k], ", "))
 		}
 
 		u, _ := uuid.NewRandom()
@@ -194,18 +229,29 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	return response_code
 }
 
 func main() {
-	var version_flag bool
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+	zerolog.LevelFieldName = "severity"
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
+	var version_flag, debug_flag bool
 
 	flag.BoolVar(&version_flag, "version", false, "show version and exit")
+	flag.BoolVar(&debug_flag, "debug", false, "set log level to DEBUG")
 
 	flag.Parse()
 
 	if version_flag {
 		fmt.Printf("version: %s (commit: %s, date, %s)\n", version, commit, date)
 		os.Exit(1)
+	}
+
+	if debug_flag || os.Getenv("DEBUG") != "" {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
 	listenPort := os.Getenv("PORT")
@@ -234,19 +280,19 @@ func main() {
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		<-sigCh
 
-		log.Printf("Starting server shutdown\n")
+		log.Info().Msg("Starting server shutdown")
 
 		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 		if err := server.Shutdown(ctx); err != nil {
 			// Error from closing listeners, or context timeout:
-			log.Printf("HTTP server Shutdown: %v\n", err)
+			log.Error().Err(err).Msgf("HTTP server Shutdown: %v", err)
 		}
 		close(idleConnsClosed)
 	}()
 
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		// Error starting or closing listener:
-		log.Fatalf("HTTP server ListenAndServe: %v\n", err)
+		log.Error().Err(err).Msgf("HTTP server ListenAndServe: %v", err)
 	}
 
 	<-idleConnsClosed
