@@ -88,7 +88,7 @@ func postProcessLog(r *http.Request, requestId string, status int, duration time
 		Int64("requestSize", r.ContentLength).
 		Str("userAgent", r.Header.Get("User-Agent")).
 		Int("status", status).
-		Int64("latency", duration.Milliseconds())).
+		Str("latency", fmt.Sprintf("%.3fs", float64(duration.Milliseconds()) / 1000))).
 		Str("pharse", "post").
 		Str("requestId", requestId).
 		Msg("")
