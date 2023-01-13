@@ -26,6 +26,7 @@ var (
 	version = "unknown"
 	commit  = "unknown"
 	date    = "unknown"
+	debug   = false
 )
 
 func sleepTime(s string) time.Duration {
@@ -88,7 +89,7 @@ func postProcessLog(r *http.Request, requestId string, status int, duration time
 		Int64("requestSize", r.ContentLength).
 		Str("userAgent", r.Header.Get("User-Agent")).
 		Int("status", status).
-		Str("latency", fmt.Sprintf("%.3fs", float64(duration.Milliseconds()) / 1000))).
+		Str("latency", fmt.Sprintf("%.3fs", float64(duration.Milliseconds())/1000))).
 		Str("pharse", "post").
 		Str("requestId", requestId).
 		Msg("")
@@ -180,6 +181,12 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 					j["body"] = string(buf)
 				}
 			}
+		} else if debug {
+			if r.Method == http.MethodPost {
+				fmt.Printf("----- BEGIN BODY -----\n")
+				io.Copy(os.Stdout, r.Body)
+				fmt.Printf("\n----- END BODY -----\n")
+			}
 		} else {
 			if r.Method == http.MethodPost {
 				io.Copy(ioutil.Discard, r.Body)
@@ -223,6 +230,17 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 			if r.Method == http.MethodPost {
 				io.Copy(w, r.Body)
 			}
+		} else if debug {
+			if r.Method == http.MethodPost {
+				fmt.Printf("----- BEGIN HEADERS -----\n")
+				for _, k := range keys {
+					fmt.Printf("%s: %s\n", k, strings.Join(r.Header[k], ", "))
+				}
+				fmt.Printf("----- END HEADERS -----\n")
+				fmt.Printf("----- BEGIN BODY -----\n")
+				io.Copy(os.Stdout, r.Body)
+				fmt.Printf("\n----- END BODY -----\n")
+			}
 		} else {
 			if r.Method == http.MethodPost {
 				io.Copy(ioutil.Discard, r.Body)
@@ -238,10 +256,10 @@ func main() {
 	zerolog.LevelFieldName = "severity"
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
-	var version_flag, debug_flag bool
+	var version_flag bool
 
 	flag.BoolVar(&version_flag, "version", false, "show version and exit")
-	flag.BoolVar(&debug_flag, "debug", false, "set log level to DEBUG")
+	flag.BoolVar(&debug, "debug", false, "set log level to DEBUG")
 
 	flag.Parse()
 
@@ -250,7 +268,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if debug_flag || os.Getenv("DEBUG") != "" {
+	if debug || os.Getenv("DEBUG") != "" {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
