@@ -251,6 +251,14 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 	return response_code
 }
 
+func debug_env() bool {
+	if os.Getenv("DEBUG") != "" {
+		return true
+	} else {
+		return false
+	}
+}
+
 func main() {
 	zerolog.TimeFieldFormat = time.RFC3339Nano
 	zerolog.LevelFieldName = "severity"
@@ -259,7 +267,7 @@ func main() {
 	var version_flag bool
 
 	flag.BoolVar(&version_flag, "version", false, "show version and exit")
-	flag.BoolVar(&debug, "debug", false, "set log level to DEBUG")
+	flag.BoolVar(&debug, "debug", debug_env(), "set log level to DEBUG")
 
 	flag.Parse()
 
@@ -268,7 +276,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if debug || os.Getenv("DEBUG") != "" {
+	if debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
