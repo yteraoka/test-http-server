@@ -11,6 +11,7 @@
 - リクエストごとに uuid を生成して response に入れる
 - サーバー側の timestamp を response に入れる
   - sleep させた場合、sleep 後の時刻
+- `/stream` で sleep しながら chunked response を返す
 
 ## container image
 
