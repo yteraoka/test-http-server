@@ -145,6 +145,59 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		w.WriteHeader(response_code)
 		fmt.Fprintf(w, "Hostname: %s\n", hostname)
 		return response_code
+	} else if strings.HasPrefix(r.RequestURI, "/stream") {
+		intervalSec := 1
+		s_interval, ok := r.URL.Query()["interval"]
+		if ok {
+			var err error
+			intervalSec, err = strconv.Atoi(s_interval[0])
+			if err != nil {
+				intervalSec = 1
+			}
+		}
+
+		count := 5
+		s_count, ok := r.URL.Query()["count"]
+		if ok {
+			var err error
+			count, err = strconv.Atoi(s_count[0])
+			if err != nil {
+				count = 1
+			}
+		}
+
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(response_code)
+		flusher, _ := w.(http.Flusher)
+
+		fmt.Fprintf(w, "\n[Request]\n")
+		fmt.Fprintf(w, "Method: %s\n", r.Method)
+		fmt.Fprintf(w, "Host: %s\n", r.Host)
+		fmt.Fprintf(w, "RequestURI: %s\n", r.RequestURI)
+		fmt.Fprintf(w, "Proto: %s\n", r.Proto)
+		fmt.Fprintf(w, "Content-Length: %d\n", r.ContentLength)
+		fmt.Fprintf(w, "Close: %v\n", r.Close)
+		fmt.Fprintf(w, "RemoteAddr: %v\n", r.RemoteAddr)
+
+		fmt.Fprintf(w, "\n[Received Headers]\n")
+		keys := make([]string, 0, len(r.Header))
+		for k := range r.Header {
+			keys = append(keys, k)
+		}
+
+		sort.Strings(keys)
+		for _, k := range keys {
+			fmt.Fprintf(w, "%s: %s\n", k, strings.Join(r.Header[k], ", "))
+		}
+
+		flusher.Flush()
+
+		for i := 0; i < count; i++ {
+			time.Sleep(time.Duration(intervalSec) * time.Second)
+			fmt.Fprintf(w, "%s chunk #%d\n", time.Now().Format("2006-01-02T15:04:05Z07:00"), i)
+			flusher.Flush()
+		}
+		return response_code
 	}
 
 	if strings.HasSuffix(r.URL.Path, ".json") {
@@ -295,7 +348,7 @@ func main() {
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       3660 * time.Second,
 		ReadTimeout:       60 * time.Second,
-		WriteTimeout:      10 * time.Second,
+		WriteTimeout:      60 * time.Second,
 		MaxHeaderBytes:    1 << 20,
 	}
 
