@@ -28,7 +28,7 @@ jobs:
         # https://github.com/erzz/dockle-action
         uses: erzz/dockle-action@v1
         with:
-          image: flask-sample:scan
+          image: test-http-server:scan
           exit-code: '1'
           failure-threshold: fatal
 
