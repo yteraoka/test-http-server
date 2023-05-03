@@ -1,8 +1,8 @@
 FROM golang:1.20.4-bullseye as build
 WORKDIR /app
 COPY server.go go.mod go.sum ./
-RUN go mod tidy
-RUN CGO_ENABLED=0 GOOS=linux go build -o test-http-server
+RUN go mod tidy \
+ && CGO_ENABLED=0 GOOS=linux go build -o test-http-server
 
 FROM debian:bullseye-slim
 WORKDIR /app
