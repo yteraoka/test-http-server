@@ -237,12 +237,18 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		} else if debug {
 			if r.Method == http.MethodPost {
 				fmt.Printf("----- BEGIN BODY -----\n")
-				io.Copy(os.Stdout, r.Body)
+				_, err := io.Copy(os.Stdout, r.Body)
+				if err != nil {
+					log.Error().Err(err).Msgf("")
+				}
 				fmt.Printf("\n----- END BODY -----\n")
 			}
 		} else {
 			if r.Method == http.MethodPost {
-				io.Copy(ioutil.Discard, r.Body)
+				_, err := io.Copy(ioutil.Discard, r.Body)
+				if err != nil {
+					log.Error().Err(err).Msgf("")
+				}
 			}
 		}
 
@@ -281,7 +287,10 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		if ok {
 			fmt.Fprintf(w, "\n[Received Body]\n")
 			if r.Method == http.MethodPost {
-				io.Copy(w, r.Body)
+				_, err := io.Copy(w, r.Body)
+				if err != nil {
+					log.Error().Err(err).Msgf("")
+				}
 			}
 		} else if debug {
 			if r.Method == http.MethodPost {
@@ -291,12 +300,18 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 				}
 				fmt.Printf("----- END HEADERS -----\n")
 				fmt.Printf("----- BEGIN BODY -----\n")
-				io.Copy(os.Stdout, r.Body)
+				_, err := io.Copy(os.Stdout, r.Body)
+				if err != nil {
+					log.Error().Err(err).Msgf("")
+				}
 				fmt.Printf("\n----- END BODY -----\n")
 			}
 		} else {
 			if r.Method == http.MethodPost {
-				io.Copy(ioutil.Discard, r.Body)
+				_, err := io.Copy(ioutil.Discard, r.Body)
+				if err != nil {
+					log.Error().Err(err).Msgf("")
+				}
 			}
 		}
 	}
