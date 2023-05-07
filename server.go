@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -229,7 +228,7 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		_, ok = r.URL.Query()["echo"]
 		if ok {
 			if r.Method == http.MethodPost {
-				buf, err := ioutil.ReadAll(r.Body)
+				buf, err := io.ReadAll(r.Body)
 				if err == nil {
 					j["body"] = string(buf)
 				}
@@ -245,7 +244,7 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 			}
 		} else {
 			if r.Method == http.MethodPost {
-				_, err := io.Copy(ioutil.Discard, r.Body)
+				_, err := io.Copy(io.Discard, r.Body)
 				if err != nil {
 					log.Error().Err(err).Msgf("")
 				}
@@ -308,7 +307,7 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 			}
 		} else {
 			if r.Method == http.MethodPost {
-				_, err := io.Copy(ioutil.Discard, r.Body)
+				_, err := io.Copy(io.Discard, r.Body)
 				if err != nil {
 					log.Error().Err(err).Msgf("")
 				}
