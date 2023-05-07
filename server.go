@@ -252,7 +252,7 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		}
 
 		s, _ := json.Marshal(j)
-		fmt.Fprintf(w, string(s))
+		fmt.Fprint(w, string(s))
 	} else {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(response_code)
