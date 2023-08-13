@@ -19,9 +19,12 @@ jobs:
         with:
           fetch-depth: 0
       - run: git fetch --force --tags
+      - name: Get go version from .tool-versions
+        id: goversion
+        run: echo goversion=$(grep '^golang ' .tool-versions | awk '{print $2}') >> $GITHUB_OUTPUT
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.20.4'
+          go-version: ${{ steps.goversion.outputs.goversion }}
           cache: true
       # More assembly might be required: Docker logins, GPG, etc. It all depends
       # on your needs.
