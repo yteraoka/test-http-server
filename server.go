@@ -144,6 +144,17 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		w.WriteHeader(response_code)
 		fmt.Fprintf(w, "Hostname: %s\n", hostname)
 		return response_code
+	} else if strings.HasPrefix(r.RequestURI, "/env") {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		for _, e := range os.Environ() {
+			pair := strings.SplitN(e, "=", 2)
+			if strings.Contains(pair[0], "SECRET") || strings.Contains(pair[0], "SESSION") || strings.Contains(pair[0], "TOKEN") {
+				fmt.Fprintf(w, "%s: %s*****\n", pair[0], pair[1][0:3])
+			} else {
+				fmt.Fprintf(w, "%s: %s\n", pair[0], pair[1])
+			}
+		}
+		return response_code
 	} else if strings.HasPrefix(r.RequestURI, "/stream") {
 		intervalSec := 1
 		s_interval, ok := r.URL.Query()["interval"]
