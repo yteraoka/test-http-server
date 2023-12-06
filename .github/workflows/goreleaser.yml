@@ -22,7 +22,7 @@ jobs:
       - name: Get go version from .tool-versions
         id: goversion
         run: echo goversion=$(grep '^golang ' .tool-versions | awk '{print $2}') >> $GITHUB_OUTPUT
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.goversion.outputs.goversion }}
           cache: true
