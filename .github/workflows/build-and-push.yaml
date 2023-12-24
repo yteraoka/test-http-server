@@ -9,6 +9,12 @@ jobs:
   build-and-push:
     name: Build and push container image
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # needed for signing the images with GitHub OIDC Token
+
     steps:
       - uses: actions/checkout@v4
 
