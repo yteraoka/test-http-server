@@ -37,6 +37,8 @@ jobs:
           load: true
           push: false
           tags: test-http-server:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Dockle
         # https://github.com/erzz/dockle-action
