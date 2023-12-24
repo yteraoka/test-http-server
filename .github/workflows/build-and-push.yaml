@@ -56,3 +56,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          cache-crom: type=gha
+          cache-to: type=gha,mode=max
