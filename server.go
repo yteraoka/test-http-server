@@ -22,10 +22,10 @@ import (
 )
 
 var (
-	version = "unknown"
-	commit  = "unknown"
-	date    = "unknown"
-	debug   = false
+	version             = "unknown"
+	commit              = "unknown"
+	date                = "unknown"
+	debug               = false
 	session_cookie_name = "SESSION_ID"
 )
 
@@ -132,7 +132,7 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 
 	new_sess_id, _ := uuid.NewRandom()
 	session_cookie := &http.Cookie{
-		Name: session_cookie_name,
+		Name:  session_cookie_name,
 		Value: new_sess_id.String(),
 	}
 
