@@ -26,6 +26,7 @@ var (
 	commit  = "unknown"
 	date    = "unknown"
 	debug   = false
+	session_cookie_name = "SESSION_ID"
 )
 
 func sleepTime(s string) time.Duration {
@@ -128,6 +129,19 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 	if ok {
 		stress(sleepTime(s_sleep[0]), cores)
 	}
+
+	new_sess_id, _ := uuid.NewRandom()
+	session_cookie := &http.Cookie{
+		Name: session_cookie_name,
+		Value: new_sess_id.String(),
+	}
+
+	sess_id, err := r.Cookie(session_cookie_name)
+	if err == nil {
+		session_cookie.Value = sess_id.Value
+	}
+
+	http.SetCookie(w, session_cookie)
 
 	//log.Printf("Request: %s %s %s\n", r.Method, r.RequestURI, r.Proto)
 	//log.Printf("RemoteAddr: %s\n", r.RemoteAddr)
