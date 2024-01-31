@@ -374,7 +374,7 @@ func main() {
 
 	listenPort := os.Getenv("PORT")
 	if listenPort == "" {
-		listenPort = "8080"
+		listenPort = "8000"
 	}
 	listenAddr := os.Getenv("LISTEN_ADDR")
 	if listenAddr == "" {
