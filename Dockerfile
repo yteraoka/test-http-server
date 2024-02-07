@@ -1,11 +1,13 @@
-FROM golang:1.22.0-bullseye as build
+FROM golang:1.22.0 as build
 WORKDIR /app
 COPY server.go go.mod go.sum ./
-RUN go mod tidy \
+RUN go mod download \
  && CGO_ENABLED=0 GOOS=linux go build -o test-http-server
 
-FROM debian:bullseye-slim
-WORKDIR /app
+# hadolint ignore=DL3007
+FROM gcr.io/distroless/static-debian11:latest
+WORKDIR /
 COPY --from=build /app/test-http-server ./
+USER nonroot
 EXPOSE 8080
-ENTRYPOINT ["/app/test-http-server"]
+ENTRYPOINT ["/test-http-server"]
