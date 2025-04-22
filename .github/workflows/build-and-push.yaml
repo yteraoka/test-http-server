@@ -33,7 +33,7 @@ jobs:
 
       - name: Install cosign
         # https://github.com/sigstore/cosign-installer
-        uses: sigstore/cosign-installer@v3.5.0
+        uses: sigstore/cosign-installer@v3.8.2
         with:
           cosign-release: 'v2.2.2'
 
