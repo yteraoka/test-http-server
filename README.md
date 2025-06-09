@@ -1,7 +1,7 @@
 # test-http-server
 
 - 8080/tcp を listen する
-  - LISTEN_ADDR, PORT で指定可能 (デフォルトが `0.0.0.0:8080`)
+  - `LISTEN_ADDR`, `PORT` で指定可能 (デフォルトが `0.0.0.0:8080`)
 - Request Header を body で返す
 - Request の URL を .json で終わらせると json で返す
 - Query String の sleep=time.Duration で指定の時間 sleep する
@@ -12,6 +12,7 @@
 - サーバー側の timestamp を response に入れる
   - sleep させた場合、sleep 後の時刻
 - `/stream` で sleep しながら chunked response を返す
+- 環境変数 `HTTP_STATUS_CODE` に数値が設定されていると常にそれを返す
 
 ## container image
 
@@ -69,16 +70,16 @@ $ curl -s "http://localhost:8080/a.json" | jq .
 ```
 
 ```
-$ curl -sw "%{time_total}\n" -o /dev/null "http://localhost:8080/?sleep=5s"                                      [main]
+$ curl -sw "%{time_total}\n" -o /dev/null "http://localhost:8080/?sleep=5s"
 5.005371
 ```
 
 ```
-$ curl -sw "%{http_code}\n" -o /dev/null "http://localhost:8080/?status=404"                                     [main]
+$ curl -sw "%{http_code}\n" -o /dev/null "http://localhost:8080/?status=404"
 404
 ```
 
 ```
-$ curl -sw "%{time_total}\n" -o /dev/null "http://localhost:8080/?stress=10s&cores=2"                            [main]
+$ curl -sw "%{time_total}\n" -o /dev/null "http://localhost:8080/?stress=10s&cores=2"
 10.005560
 ```
