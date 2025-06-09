@@ -114,6 +114,12 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 	if ok {
 		response_code = responseCode(status[0])
 	}
+	if os.Getenv("HTTP_STATUS_CODE") != "" {
+		env_status_code, err := strconv.Atoi(os.Getenv("HTTP_STATUS_CODE"))
+		if err == nil {
+			response_code = env_status_code
+		}
+	}
 
 	cores := 0
 	s_cores, ok := r.URL.Query()["cores"]
