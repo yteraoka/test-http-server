@@ -4,13 +4,13 @@ jobs:
   golangci-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
       - name: Get go version from .tool-versions
         id: goversion
         run: echo goversion=$(grep '^golang ' .tool-versions | awk '{print $2}') >> $GITHUB_OUTPUT
       - name: golangci-lint
-        uses: reviewdog/action-golangci-lint@v2
+        uses: reviewdog/action-golangci-lint@f9bba13753278f6a73b27a56a3ffb1bfda90ed71 # v2.8.0
         with:
           go_version: ${{ steps.goversion.outputs.goversion }}
