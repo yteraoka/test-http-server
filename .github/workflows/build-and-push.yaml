@@ -16,7 +16,7 @@ jobs:
       id-token: write # needed for signing the images with GitHub OIDC Token
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Docker meta
         # https://github.com/docker/metadata-action
