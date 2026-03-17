@@ -123,7 +123,7 @@ func preProcessLog(r *http.Request, requestId string) {
 		Str("remoteIp", r.RemoteAddr).
 		Int64("requestSize", r.ContentLength).
 		Str("userAgent", r.Header.Get("User-Agent"))).
-		Str("pharse", "pre").
+		Str("phase","pre").
 		Str("requestId", requestId).
 		Msg("")
 }
@@ -137,7 +137,7 @@ func postProcessLog(r *http.Request, requestId string, status int, duration time
 		Str("userAgent", r.Header.Get("User-Agent")).
 		Int("status", status).
 		Str("latency", fmt.Sprintf("%.3fs", float64(duration.Milliseconds())/1000))).
-		Str("pharse", "post").
+		Str("phase","post").
 		Str("requestId", requestId).
 		Msg("")
 }
