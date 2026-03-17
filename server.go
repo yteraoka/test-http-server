@@ -62,7 +62,7 @@ func stress(t time.Duration, cores int) {
 				select {
 				case <-done:
 					return
-				default:
+				default: //nolint:staticcheck // intentional CPU spin for stress testing
 				}
 			}
 		}()
@@ -100,19 +100,19 @@ func sortedHeaderKeys(headers http.Header) []string {
 }
 
 func writeRequestInfo(w io.Writer, r *http.Request) {
-	fmt.Fprintf(w, "\n[Request]\n")
-	fmt.Fprintf(w, "Method: %s\n", r.Method)
-	fmt.Fprintf(w, "Host: %s\n", r.Host)
-	fmt.Fprintf(w, "RequestURI: %s\n", r.RequestURI)
-	fmt.Fprintf(w, "Proto: %s\n", r.Proto)
-	fmt.Fprintf(w, "Content-Length: %d\n", r.ContentLength)
-	fmt.Fprintf(w, "Close: %v\n", r.Close)
-	fmt.Fprintf(w, "RemoteAddr: %v\n", r.RemoteAddr)
+	_, _ = fmt.Fprintf(w, "\n[Request]\n")
+	_, _ = fmt.Fprintf(w, "Method: %s\n", r.Method)
+	_, _ = fmt.Fprintf(w, "Host: %s\n", r.Host)
+	_, _ = fmt.Fprintf(w, "RequestURI: %s\n", r.RequestURI)
+	_, _ = fmt.Fprintf(w, "Proto: %s\n", r.Proto)
+	_, _ = fmt.Fprintf(w, "Content-Length: %d\n", r.ContentLength)
+	_, _ = fmt.Fprintf(w, "Close: %v\n", r.Close)
+	_, _ = fmt.Fprintf(w, "RemoteAddr: %v\n", r.RemoteAddr)
 }
 
 func writeHeaders(w io.Writer, headers http.Header) {
 	for _, k := range sortedHeaderKeys(headers) {
-		fmt.Fprintf(w, "%s: %s\n", k, strings.Join(headers[k], ", "))
+		_, _ = fmt.Fprintf(w, "%s: %s\n", k, strings.Join(headers[k], ", "))
 	}
 }
 
@@ -233,12 +233,12 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		hostname, err := os.Hostname()
 		if err != nil {
 			w.WriteHeader(500)
-			fmt.Fprintf(w, "%s\n", err)
+			_, _ = fmt.Fprintf(w, "%s\n", err)
 			return 500
 		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(statusCode)
-		fmt.Fprintf(w, "Hostname: %s\n", hostname)
+		_, _ = fmt.Fprintf(w, "Hostname: %s\n", hostname)
 		return statusCode
 	} else if strings.HasPrefix(r.RequestURI, "/env") {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -249,9 +249,9 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 				if len(prefix) > 3 {
 					prefix = prefix[:3]
 				}
-				fmt.Fprintf(w, "%s: %s*****\n", pair[0], prefix)
+				_, _ = fmt.Fprintf(w, "%s: %s*****\n", pair[0], prefix)
 			} else {
-				fmt.Fprintf(w, "%s: %s\n", pair[0], pair[1])
+				_, _ = fmt.Fprintf(w, "%s: %s\n", pair[0], pair[1])
 			}
 		}
 		return statusCode
@@ -278,7 +278,7 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		}
 
 		writeRequestInfo(w, r)
-		fmt.Fprintf(w, "\n[Received Headers]\n")
+		_, _ = fmt.Fprintf(w, "\n[Received Headers]\n")
 		writeHeaders(w, r.Header)
 
 		if canFlush {
@@ -287,7 +287,7 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 
 		for i := 0; i < count; i++ {
 			time.Sleep(time.Duration(intervalSec) * time.Second)
-			fmt.Fprintf(w, "%s chunk #%d\n", time.Now().Format("2006-01-02T15:04:05Z07:00"), i)
+			_, _ = fmt.Fprintf(w, "%s chunk #%d\n", time.Now().Format("2006-01-02T15:04:05Z07:00"), i)
 			if canFlush {
 				flusher.Flush()
 			}
@@ -339,28 +339,28 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		fmt.Fprint(w, string(s))
+		_, _ = fmt.Fprint(w, string(s))
 	} else {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(statusCode)
 
 		writeRequestInfo(w, r)
-		fmt.Fprintf(w, "\n[Received Headers]\n")
+		_, _ = fmt.Fprintf(w, "\n[Received Headers]\n")
 		writeHeaders(w, r.Header)
 
 		u, err := uuid.NewRandom()
 		if err != nil {
 			log.Warn().Err(err).Str("requestId", requestId).Msg("Failed to generate UUID")
 		}
-		fmt.Fprintf(w, "\n[Server Generated]\n")
-		fmt.Fprintf(w, "uuid: %s\n", u.String())
-		fmt.Fprintf(w, "time: %s\n", time.Now().String())
+		_, _ = fmt.Fprintf(w, "\n[Server Generated]\n")
+		_, _ = fmt.Fprintf(w, "uuid: %s\n", u.String())
+		_, _ = fmt.Fprintf(w, "time: %s\n", time.Now().String())
 
 		_, hasEcho := r.URL.Query()["echo"]
 		if hasEcho {
-			fmt.Fprintf(w, "\n[Received Body]\n")
+			_, _ = fmt.Fprintf(w, "\n[Received Body]\n")
 			if r.Method == http.MethodPost {
-				fmt.Fprintf(w, "%s", buf)
+				_, _ = fmt.Fprintf(w, "%s", buf)
 			}
 		} else if debug {
 			if r.Method == http.MethodPost {
