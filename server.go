@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -21,12 +22,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const defaultMaxBodySize = 20 * 1024 * 1024 // 20MB
+
 var (
 	version           = "unknown"
 	commit            = "unknown"
 	date              = "unknown"
 	debug             = false
 	sessionCookieName = "SESSION_ID"
+	maxBodySize       int64 = defaultMaxBodySize
 )
 
 var sensitiveEnvKeywords = []string{
@@ -175,8 +179,15 @@ type jsonResponse struct {
 }
 
 func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 	buf, err := io.ReadAll(r.Body)
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			log.Warn().Int64("limit", maxBytesErr.Limit).Str("requestId", requestId).Msg("Request body too large")
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			return http.StatusRequestEntityTooLarge
+		}
 		log.Error().Err(err).Str("requestId", requestId).Msg("Failed to read request body")
 		w.WriteHeader(http.StatusBadRequest)
 		return http.StatusBadRequest
@@ -403,6 +414,15 @@ func main() {
 	if debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
+
+	if s := os.Getenv("MAX_BODY_SIZE"); s != "" {
+		if n, err := strconv.ParseInt(s, 10, 64); err == nil && n > 0 {
+			maxBodySize = n
+		} else {
+			log.Warn().Str("value", s).Msg("Invalid MAX_BODY_SIZE, using default")
+		}
+	}
+	log.Info().Int64("maxBodySize", maxBodySize).Msg("Request body size limit")
 
 	listenPort := getEnv("PORT", "8080")
 	listenAddr := getEnv("LISTEN_ADDR", "0.0.0.0")
