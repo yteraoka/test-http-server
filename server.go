@@ -104,6 +104,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int {
+	buf, _ := io.ReadAll(r.Body)
+
 	s_sleep, ok := r.URL.Query()["sleep"]
 	if ok {
 		time.Sleep(sleepTime(s_sleep[0]))
@@ -259,7 +261,6 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		_, ok = r.URL.Query()["echo"]
 		if ok {
 			if r.Method == http.MethodPost {
-				buf, err := io.ReadAll(r.Body)
 				if err == nil {
 					j["body"] = string(buf)
 				}
@@ -267,18 +268,8 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		} else if debug {
 			if r.Method == http.MethodPost {
 				fmt.Printf("----- BEGIN BODY -----\n")
-				_, err := io.Copy(os.Stdout, r.Body)
-				if err != nil {
-					log.Error().Err(err).Msgf("")
-				}
+				fmt.Printf("%s", buf)
 				fmt.Printf("\n----- END BODY -----\n")
-			}
-		} else {
-			if r.Method == http.MethodPost {
-				_, err := io.Copy(io.Discard, r.Body)
-				if err != nil {
-					log.Error().Err(err).Msgf("")
-				}
 			}
 		}
 
@@ -317,10 +308,7 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		if ok {
 			fmt.Fprintf(w, "\n[Received Body]\n")
 			if r.Method == http.MethodPost {
-				_, err := io.Copy(w, r.Body)
-				if err != nil {
-					log.Error().Err(err).Msgf("")
-				}
+				fmt.Fprintf(w, "%s", buf)
 			}
 		} else if debug {
 			if r.Method == http.MethodPost {
@@ -330,18 +318,8 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 				}
 				fmt.Printf("----- END HEADERS -----\n")
 				fmt.Printf("----- BEGIN BODY -----\n")
-				_, err := io.Copy(os.Stdout, r.Body)
-				if err != nil {
-					log.Error().Err(err).Msgf("")
-				}
+				fmt.Printf("%s", buf)
 				fmt.Printf("\n----- END BODY -----\n")
-			}
-		} else {
-			if r.Method == http.MethodPost {
-				_, err := io.Copy(io.Discard, r.Body)
-				if err != nil {
-					log.Error().Err(err).Msgf("")
-				}
 			}
 		}
 	}
