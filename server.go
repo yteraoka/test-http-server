@@ -22,12 +22,16 @@ import (
 )
 
 var (
-	version             = "unknown"
-	commit              = "unknown"
-	date                = "unknown"
-	debug               = false
-	session_cookie_name = "SESSION_ID"
+	version           = "unknown"
+	commit            = "unknown"
+	date              = "unknown"
+	debug             = false
+	sessionCookieName = "SESSION_ID"
 )
+
+var sensitiveEnvKeywords = []string{
+	"SECRET", "SESSION", "TOKEN", "PASSWORD", "PASSWD", "APIKEY", "API_KEY", "CREDENTIAL", "PRIVATE_KEY",
+}
 
 func sleepTime(s string) time.Duration {
 	t, err := time.ParseDuration(s)
@@ -37,7 +41,7 @@ func sleepTime(s string) time.Duration {
 	return t
 }
 
-func responseCode(s string) int {
+func parseStatusCode(s string) int {
 	code, err := strconv.Atoi(s)
 	if err != nil {
 		code = http.StatusOK
@@ -46,7 +50,7 @@ func responseCode(s string) int {
 }
 
 func stress(t time.Duration, cores int) {
-	done := make(chan int)
+	done := make(chan struct{})
 
 	if cores == 0 {
 		cores = runtime.NumCPU()
@@ -67,6 +71,49 @@ func stress(t time.Duration, cores int) {
 	time.Sleep(t)
 
 	close(done)
+}
+
+func getEnv(key, defaultValue string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return defaultValue
+}
+
+func isSensitiveEnvKey(key string) bool {
+	upper := strings.ToUpper(key)
+	for _, kw := range sensitiveEnvKeywords {
+		if strings.Contains(upper, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+func sortedHeaderKeys(headers http.Header) []string {
+	keys := make([]string, 0, len(headers))
+	for k := range headers {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func writeRequestInfo(w io.Writer, r *http.Request) {
+	fmt.Fprintf(w, "\n[Request]\n")
+	fmt.Fprintf(w, "Method: %s\n", r.Method)
+	fmt.Fprintf(w, "Host: %s\n", r.Host)
+	fmt.Fprintf(w, "RequestURI: %s\n", r.RequestURI)
+	fmt.Fprintf(w, "Proto: %s\n", r.Proto)
+	fmt.Fprintf(w, "Content-Length: %d\n", r.ContentLength)
+	fmt.Fprintf(w, "Close: %v\n", r.Close)
+	fmt.Fprintf(w, "RemoteAddr: %v\n", r.RemoteAddr)
+}
+
+func writeHeaders(w io.Writer, headers http.Header) {
+	for _, k := range sortedHeaderKeys(headers) {
+		fmt.Fprintf(w, "%s: %s\n", k, strings.Join(headers[k], ", "))
+	}
 }
 
 func preProcessLog(r *http.Request, requestId string) {
@@ -97,63 +144,90 @@ func postProcessLog(r *http.Request, requestId string, status int, duration time
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
-	requestId, _ := uuid.NewRandom()
+	requestId, err := uuid.NewRandom()
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to generate request ID")
+	}
 	preProcessLog(r, requestId.String())
 	status := innerHandler(w, r, requestId.String())
 	postProcessLog(r, requestId.String(), status, time.Since(start))
 }
 
+type jsonRequest struct {
+	Method        string `json:"method"`
+	URI           string `json:"uri"`
+	Proto         string `json:"proto"`
+	ContentLength int64  `json:"content-length"`
+	RemoteAddr    string `json:"remote-addr"`
+	Close         bool   `json:"close"`
+}
+
+type jsonGenerated struct {
+	UUID string `json:"uuid"`
+	Time string `json:"time"`
+}
+
+type jsonResponse struct {
+	Request   jsonRequest          `json:"request"`
+	Headers   map[string][]string  `json:"headers"`
+	Generated jsonGenerated        `json:"generated"`
+	Body      string               `json:"body,omitempty"`
+}
+
 func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int {
-	buf, _ := io.ReadAll(r.Body)
-
-	s_sleep, ok := r.URL.Query()["sleep"]
-	if ok {
-		time.Sleep(sleepTime(s_sleep[0]))
+	buf, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Error().Err(err).Str("requestId", requestId).Msg("Failed to read request body")
+		w.WriteHeader(http.StatusBadRequest)
+		return http.StatusBadRequest
 	}
 
-	response_code := http.StatusOK
-	status, ok := r.URL.Query()["status"]
+	sSleep, ok := r.URL.Query()["sleep"]
 	if ok {
-		response_code = responseCode(status[0])
+		time.Sleep(sleepTime(sSleep[0]))
 	}
-	if os.Getenv("HTTP_STATUS_CODE") != "" {
-		env_status_code, err := strconv.Atoi(os.Getenv("HTTP_STATUS_CODE"))
-		if err == nil {
-			response_code = env_status_code
+
+	statusCode := http.StatusOK
+	statusParam, ok := r.URL.Query()["status"]
+	if ok {
+		statusCode = parseStatusCode(statusParam[0])
+	}
+	if envCode := os.Getenv("HTTP_STATUS_CODE"); envCode != "" {
+		if code, err := strconv.Atoi(envCode); err == nil {
+			statusCode = code
 		}
 	}
 
 	cores := 0
-	s_cores, ok := r.URL.Query()["cores"]
+	sCores, ok := r.URL.Query()["cores"]
 	if ok {
-		var err error
-		cores, err = strconv.Atoi(s_cores[0])
-		if err != nil {
-			cores = 0
+		if n, err := strconv.Atoi(sCores[0]); err == nil {
+			cores = n
 		}
 	}
 
-	s_sleep, ok = r.URL.Query()["stress"]
+	stressParam, ok := r.URL.Query()["stress"]
 	if ok {
-		stress(sleepTime(s_sleep[0]), cores)
+		stress(sleepTime(stressParam[0]), cores)
 	}
 
-	new_sess_id, _ := uuid.NewRandom()
-	session_cookie := &http.Cookie{
-		Name:  session_cookie_name,
-		Value: new_sess_id.String(),
+	newSessID, err := uuid.NewRandom()
+	if err != nil {
+		log.Warn().Err(err).Str("requestId", requestId).Msg("Failed to generate session ID")
 	}
 
-	sess_id, err := r.Cookie(session_cookie_name)
-	if err == nil {
-		session_cookie.Value = sess_id.Value
+	sessionCookie := &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    newSessID.String(),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
 	}
 
-	http.SetCookie(w, session_cookie)
+	if sessID, err := r.Cookie(sessionCookieName); err == nil {
+		sessionCookie.Value = sessID.Value
+	}
 
-	//log.Printf("Request: %s %s %s\n", r.Method, r.RequestURI, r.Proto)
-	//log.Printf("RemoteAddr: %s\n", r.RemoteAddr)
-	//log.Printf("Host: %s\n", r.Host)
+	http.SetCookie(w, sessionCookie)
 
 	if strings.HasPrefix(r.RequestURI, "/hostname") {
 		hostname, err := os.Hostname()
@@ -163,107 +237,90 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 			return 500
 		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(response_code)
+		w.WriteHeader(statusCode)
 		fmt.Fprintf(w, "Hostname: %s\n", hostname)
-		return response_code
+		return statusCode
 	} else if strings.HasPrefix(r.RequestURI, "/env") {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		for _, e := range os.Environ() {
 			pair := strings.SplitN(e, "=", 2)
-			if strings.Contains(pair[0], "SECRET") || strings.Contains(pair[0], "SESSION") || strings.Contains(pair[0], "TOKEN") {
-				fmt.Fprintf(w, "%s: %s*****\n", pair[0], pair[1][0:3])
+			if isSensitiveEnvKey(pair[0]) {
+				prefix := pair[1]
+				if len(prefix) > 3 {
+					prefix = prefix[:3]
+				}
+				fmt.Fprintf(w, "%s: %s*****\n", pair[0], prefix)
 			} else {
 				fmt.Fprintf(w, "%s: %s\n", pair[0], pair[1])
 			}
 		}
-		return response_code
+		return statusCode
 	} else if strings.HasPrefix(r.RequestURI, "/stream") {
 		intervalSec := 1
-		s_interval, ok := r.URL.Query()["interval"]
-		if ok {
-			var err error
-			intervalSec, err = strconv.Atoi(s_interval[0])
-			if err != nil {
-				intervalSec = 1
+		if sInterval, ok := r.URL.Query()["interval"]; ok {
+			if n, err := strconv.Atoi(sInterval[0]); err == nil {
+				intervalSec = n
 			}
 		}
 
 		count := 5
-		s_count, ok := r.URL.Query()["count"]
-		if ok {
-			var err error
-			count, err = strconv.Atoi(s_count[0])
-			if err != nil {
-				count = 1
+		if sCount, ok := r.URL.Query()["count"]; ok {
+			if n, err := strconv.Atoi(sCount[0]); err == nil {
+				count = n
 			}
 		}
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(response_code)
-		flusher, _ := w.(http.Flusher)
+		w.WriteHeader(statusCode)
+		flusher, canFlush := w.(http.Flusher)
+		if !canFlush {
+			log.Warn().Str("requestId", requestId).Msg("ResponseWriter does not support flushing")
+		}
 
-		fmt.Fprintf(w, "\n[Request]\n")
-		fmt.Fprintf(w, "Method: %s\n", r.Method)
-		fmt.Fprintf(w, "Host: %s\n", r.Host)
-		fmt.Fprintf(w, "RequestURI: %s\n", r.RequestURI)
-		fmt.Fprintf(w, "Proto: %s\n", r.Proto)
-		fmt.Fprintf(w, "Content-Length: %d\n", r.ContentLength)
-		fmt.Fprintf(w, "Close: %v\n", r.Close)
-		fmt.Fprintf(w, "RemoteAddr: %v\n", r.RemoteAddr)
-
+		writeRequestInfo(w, r)
 		fmt.Fprintf(w, "\n[Received Headers]\n")
-		keys := make([]string, 0, len(r.Header))
-		for k := range r.Header {
-			keys = append(keys, k)
-		}
+		writeHeaders(w, r.Header)
 
-		sort.Strings(keys)
-		for _, k := range keys {
-			fmt.Fprintf(w, "%s: %s\n", k, strings.Join(r.Header[k], ", "))
+		if canFlush {
+			flusher.Flush()
 		}
-
-		flusher.Flush()
 
 		for i := 0; i < count; i++ {
 			time.Sleep(time.Duration(intervalSec) * time.Second)
 			fmt.Fprintf(w, "%s chunk #%d\n", time.Now().Format("2006-01-02T15:04:05Z07:00"), i)
-			flusher.Flush()
+			if canFlush {
+				flusher.Flush()
+			}
 		}
-		return response_code
+		return statusCode
 	}
 
 	if strings.HasSuffix(r.URL.Path, ".json") {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(response_code)
-
-		j := map[string]interface{}{
-			"request":   map[string]interface{}{},
-			"headers":   map[string]interface{}{},
-			"generated": map[string]interface{}{},
+		u, err := uuid.NewRandom()
+		if err != nil {
+			log.Warn().Err(err).Str("requestId", requestId).Msg("Failed to generate UUID")
 		}
 
-		j["request"].(map[string]interface{})["method"] = r.Method
-		j["request"].(map[string]interface{})["uri"] = r.RequestURI
-		j["request"].(map[string]interface{})["proto"] = r.Proto
-		j["request"].(map[string]interface{})["content-length"] = r.ContentLength
-		j["request"].(map[string]interface{})["remote-addr"] = r.RemoteAddr
-		j["request"].(map[string]interface{})["close"] = r.Close
-
-		u, _ := uuid.NewRandom()
-		j["generated"].(map[string]interface{})["uuid"] = u.String()
-		j["generated"].(map[string]interface{})["time"] = time.Now().String()
-
-		for k, v := range r.Header {
-			j["headers"].(map[string]interface{})[k] = v
-			//log.Printf("%s: %v\n", k, v)
+		resp := jsonResponse{
+			Request: jsonRequest{
+				Method:        r.Method,
+				URI:           r.RequestURI,
+				Proto:         r.Proto,
+				ContentLength: r.ContentLength,
+				RemoteAddr:    r.RemoteAddr,
+				Close:         r.Close,
+			},
+			Headers: map[string][]string(r.Header),
+			Generated: jsonGenerated{
+				UUID: u.String(),
+				Time: time.Now().String(),
+			},
 		}
 
-		_, ok = r.URL.Query()["echo"]
-		if ok {
+		_, hasEcho := r.URL.Query()["echo"]
+		if hasEcho {
 			if r.Method == http.MethodPost {
-				if err == nil {
-					j["body"] = string(buf)
-				}
+				resp.Body = string(buf)
 			}
 		} else if debug {
 			if r.Method == http.MethodPost {
@@ -273,39 +330,34 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 			}
 		}
 
-		s, _ := json.Marshal(j)
+		s, err := json.Marshal(resp)
+		if err != nil {
+			log.Error().Err(err).Str("requestId", requestId).Msg("Failed to marshal JSON response")
+			w.WriteHeader(http.StatusInternalServerError)
+			return http.StatusInternalServerError
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(statusCode)
 		fmt.Fprint(w, string(s))
 	} else {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(response_code)
-		fmt.Fprintf(w, "\n[Request]\n")
-		fmt.Fprintf(w, "Method: %s\n", r.Method)
-		fmt.Fprintf(w, "Host: %s\n", r.Host)
-		fmt.Fprintf(w, "RequestURI: %s\n", r.RequestURI)
-		fmt.Fprintf(w, "Proto: %s\n", r.Proto)
-		fmt.Fprintf(w, "Content-Length: %d\n", r.ContentLength)
-		fmt.Fprintf(w, "Close: %v\n", r.Close)
-		fmt.Fprintf(w, "RemoteAddr: %v\n", r.RemoteAddr)
+		w.WriteHeader(statusCode)
 
+		writeRequestInfo(w, r)
 		fmt.Fprintf(w, "\n[Received Headers]\n")
-		keys := make([]string, 0, len(r.Header))
-		for k := range r.Header {
-			keys = append(keys, k)
-		}
+		writeHeaders(w, r.Header)
 
-		sort.Strings(keys)
-		for _, k := range keys {
-			fmt.Fprintf(w, "%s: %s\n", k, strings.Join(r.Header[k], ", "))
-			//log.Printf("%s: %v\n", k, strings.Join(r.Header[k], ", "))
+		u, err := uuid.NewRandom()
+		if err != nil {
+			log.Warn().Err(err).Str("requestId", requestId).Msg("Failed to generate UUID")
 		}
-
-		u, _ := uuid.NewRandom()
 		fmt.Fprintf(w, "\n[Server Generated]\n")
 		fmt.Fprintf(w, "uuid: %s\n", u.String())
 		fmt.Fprintf(w, "time: %s\n", time.Now().String())
 
-		_, ok = r.URL.Query()["echo"]
-		if ok {
+		_, hasEcho := r.URL.Query()["echo"]
+		if hasEcho {
 			fmt.Fprintf(w, "\n[Received Body]\n")
 			if r.Method == http.MethodPost {
 				fmt.Fprintf(w, "%s", buf)
@@ -313,7 +365,7 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		} else if debug {
 			if r.Method == http.MethodPost {
 				fmt.Printf("----- BEGIN HEADERS -----\n")
-				for _, k := range keys {
+				for _, k := range sortedHeaderKeys(r.Header) {
 					fmt.Printf("%s: %s\n", k, strings.Join(r.Header[k], ", "))
 				}
 				fmt.Printf("----- END HEADERS -----\n")
@@ -324,15 +376,11 @@ func innerHandler(w http.ResponseWriter, r *http.Request, requestId string) int 
 		}
 	}
 
-	return response_code
+	return statusCode
 }
 
-func debug_env() bool {
-	if os.Getenv("DEBUG") != "" {
-		return true
-	} else {
-		return false
-	}
+func debugEnv() bool {
+	return os.Getenv("DEBUG") != ""
 }
 
 func main() {
@@ -340,14 +388,14 @@ func main() {
 	zerolog.LevelFieldName = "severity"
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
-	var version_flag bool
+	var versionFlag bool
 
-	flag.BoolVar(&version_flag, "version", false, "show version and exit")
-	flag.BoolVar(&debug, "debug", debug_env(), "set log level to DEBUG")
+	flag.BoolVar(&versionFlag, "version", false, "show version and exit")
+	flag.BoolVar(&debug, "debug", debugEnv(), "set log level to DEBUG")
 
 	flag.Parse()
 
-	if version_flag {
+	if versionFlag {
 		fmt.Printf("version: %s (commit: %s, date, %s)\n", version, commit, date)
 		os.Exit(1)
 	}
@@ -356,14 +404,8 @@ func main() {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
-	listenPort := os.Getenv("PORT")
-	if listenPort == "" {
-		listenPort = "8080"
-	}
-	listenAddr := os.Getenv("LISTEN_ADDR")
-	if listenAddr == "" {
-		listenAddr = "0.0.0.0"
-	}
+	listenPort := getEnv("PORT", "8080")
+	listenAddr := getEnv("LISTEN_ADDR", "0.0.0.0")
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf("%s:%s", listenAddr, listenPort),
@@ -387,15 +429,13 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := server.Shutdown(ctx); err != nil {
-			// Error from closing listeners, or context timeout:
-			log.Error().Err(err).Msgf("HTTP server Shutdown: %v", err)
+			log.Error().Err(err).Msg("HTTP server Shutdown error")
 		}
 		close(idleConnsClosed)
 	}()
 
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		// Error starting or closing listener:
-		log.Error().Err(err).Msgf("HTTP server ListenAndServe: %v", err)
+		log.Error().Err(err).Msg("HTTP server ListenAndServe error")
 	}
 
 	<-idleConnsClosed
