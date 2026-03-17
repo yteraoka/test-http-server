@@ -1,4 +1,9 @@
-on: [pull_request]
+name: golangci-lint
+
+on:
+  pull_request:
+    branches:
+      - main
 
 jobs:
   golangci-lint:
@@ -7,10 +12,12 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-      - name: Get go version from .tool-versions
-        id: goversion
-        run: echo goversion=$(grep '^golang ' .tool-versions | awk '{print $2}') >> $GITHUB_OUTPUT
+
+      - name: Extract Go version
+        id: go-version
+        run: echo "version=$(grep 'go = ' mise.toml | cut -d '"' -f 2)" >> $GITHUB_OUTPUT
+
       - name: golangci-lint
         uses: reviewdog/action-golangci-lint@f9bba13753278f6a73b27a56a3ffb1bfda90ed71 # v2.8.0
         with:
-          go_version: ${{ steps.goversion.outputs.goversion }}
+          go_version: ${{ steps.go-version.outputs.version }}
