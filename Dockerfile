@@ -5,7 +5,7 @@ RUN go mod download \
  && CGO_ENABLED=0 GOOS=linux go build -o test-http-server
 
 # hadolint ignore=DL3007
-FROM gcr.io/distroless/static-debian11:latest
+FROM gcr.io/distroless/static-debian13:latest
 WORKDIR /
 COPY --from=build /app/test-http-server ./
 USER nonroot
