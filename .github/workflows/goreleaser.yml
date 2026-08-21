@@ -24,6 +24,10 @@ jobs:
         id: go-version
         run: echo "version=$(grep 'go = ' mise.toml | cut -d '"' -f 2)" >> $GITHUB_OUTPUT
 
+      - name: Extract goreleaser version
+        id: goreleaser-version
+        run: echo "version=$(grep 'goreleaser = ' mise.toml | cut -d '"' -f 2)" >> $GITHUB_OUTPUT
+
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ steps.go-version.outputs.version }}
@@ -35,7 +39,7 @@ jobs:
         with:
           # either 'goreleaser' (default) or 'goreleaser-pro':
           distribution: goreleaser
-          version: latest
+          version: ${{ steps.goreleaser-version.outputs.version }}
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
