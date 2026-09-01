@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.7.4](https://github.com/yteraoka/test-http-server/compare/v0.7.3...v0.7.4) - 2026-08-31
+
+- chore(deps): update dependency goreleaser to v2.18.0 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/188
+- chore(deps): update hadolint/hadolint-action action to v3.5.0 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/190
+
 ## [v0.7.3](https://github.com/yteraoka/test-http-server/compare/v0.7.2...v0.7.3) - 2026-08-30
 
 - chore(deps): update dependency go to v1.26.3 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/148
