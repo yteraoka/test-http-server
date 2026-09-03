@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.7.5](https://github.com/yteraoka/test-http-server/compare/v0.7.4...v0.7.5) - 2026-09-03
+
+- chore(deps): update dependency golangci-lint to v2.13.2 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/191
+
 ## [v0.7.4](https://github.com/yteraoka/test-http-server/compare/v0.7.3...v0.7.4) - 2026-08-31
 
 - chore(deps): update dependency goreleaser to v2.18.0 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/188
