@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.7.5](https://github.com/yteraoka/test-http-server/compare/v0.7.4...v0.7.5) - 2026-09-10
+
+- chore(deps): update dependency golangci-lint to v2.13.2 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/191
+- chore(deps): update docker/setup-qemu-action action to v4.3.0 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/193
+- chore(deps): update dependency go to v1.27.1 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/194
+- chore(deps): update golang docker tag to v1.27.1 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/195
+- chore(deps): update songmu/tagpr action to v1.20.3 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/196
+
 ## [v0.7.4](https://github.com/yteraoka/test-http-server/compare/v0.7.3...v0.7.4) - 2026-08-31
 
 - chore(deps): update dependency goreleaser to v2.18.0 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/188
