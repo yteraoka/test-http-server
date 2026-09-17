@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.7.6](https://github.com/yteraoka/test-http-server/compare/v0.7.5...v0.7.6) - 2026-09-17
+
+- chore(deps): update dependency helm to v4.3.0 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/198
+
 ## [v0.7.5](https://github.com/yteraoka/test-http-server/compare/v0.7.4...v0.7.5) - 2026-09-13
 
 - chore(deps): update dependency golangci-lint to v2.13.2 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/191
