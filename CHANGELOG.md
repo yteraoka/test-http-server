@@ -1,5 +1,14 @@
 # Changelog
 
+## [v0.7.6](https://github.com/yteraoka/test-http-server/compare/v0.7.5...v0.7.6) - 2026-09-24
+
+- chore(deps): update dependency helm to v4.3.0 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/198
+- chore(deps): update docker/build-push-action action to v7.4.0 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/200
+- chore(deps): update docker/setup-buildx-action action to v4.4.0 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/201
+- chore(deps): update docker/setup-qemu-action action to v4.4.0 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/202
+- chore(deps): update docker/setup-buildx-action action to v4.4.1 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/203
+- chore(deps): update dependency goreleaser to v2.18.2 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/204
+
 ## [v0.7.5](https://github.com/yteraoka/test-http-server/compare/v0.7.4...v0.7.5) - 2026-09-13
 
 - chore(deps): update dependency golangci-lint to v2.13.2 by @renovate[bot] in https://github.com/yteraoka/test-http-server/pull/191
